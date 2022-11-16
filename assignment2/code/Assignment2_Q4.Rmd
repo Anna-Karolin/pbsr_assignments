@@ -1,0 +1,176 @@
+---
+title: "**Probability and Statistics with R**"
+author: "**Mohit Kumar Jain**"
+date: "Submission Nov 16-2022 (Wednesday)"
+output: pdf_document
+---
+
+## Problem 4: Modelling Insurance Claims
+
+Consider the `Insurance` data sets in the `MASS` package. The data given in data frame `Insurance` consist of the numbers of policyholders of an insurance company who were exposed to risk, and the numbers of car insurance claims made by those policyholders in the third quarter of 1973.
+
+This data frame contains the following columns:
+
+`District` (factor): district of residence of policyholder (1 to 4): 4 is major cities.
+
+`Group` (an ordered factor): group of car with levels <1 litre, 1–1.5 litre, 1.5–2 litre, >2 litre.
+
+`Age` (an ordered factor): the age of the insured in 4 groups labelled <25, 25–29, 30–35, >35.
+
+`Holders` : numbers of policyholders.
+
+`Claims` : numbers of claims
+
+**Note**: If you use built-in function like `lm` or any packages then no points will be awarded.
+
+**Part A**: We want to predict the `Claims` as function of `Holders`. So we want to fit the following models:
+$$
+\texttt{Claims}_i=\beta_0 + \beta_1~\texttt{Holders}_i + \varepsilon_i,~~~i=1,2,\cdots,n
+$$
+*Assume* : $\varepsilon_i\sim N(0,\sigma^2)$. Note that $\beta_0,\beta_1 \in\mathbb{R}$ and $\sigma \in \mathbb{R}^{+}$.
+
+The above model can alse be re-expressed as,
+$$
+\texttt{Claims}_i\sim N(\mu_i,\sigma^2),~~where
+$$
+$$
+\mu_i =\beta_0 + \beta_1~\texttt{Holders}_i + \varepsilon_i,~~~i=1,2,\cdots,n
+$$
+
+
+(i) Clearly write down the negative-log-likelihood function in `R`. Then use `optim` function to estimate MLE of $\theta=(\beta_0,\beta_1,\sigma)$
+(ii) Calculate **Bayesian Information Criterion** (BIC) for the model.
+
+**Part B**: Now we want to fit the same model with change in distribution:
+$$
+\texttt{Claims}_i=\beta_0 + \beta_1~\texttt{Holders}_i + \varepsilon_i,~~~i=1,2,\cdots,n
+$$
+  Assume : $\varepsilon_i\sim Laplace(0,\sigma^2)$. Note that $\beta_0,\beta_1 \in\mathbb{R}$ and $\sigma \in \mathbb{R}^{+}$.
+
+(i) Clearly write down the negative-log-likelihood function in `R`. Then use `optim` function to estimate MLE of $\theta=(\beta_0,\beta_1,\sigma)$
+
+(ii) Calculate **Bayesian Information Criterion** (BIC) for the model.
+
+**Part C**: We want to fit the following models:
+$$
+\texttt{Claims}_i\sim LogNormal(\mu_i,\sigma^2), where
+$$
+$$
+\mu_i=\beta_0 + \beta_1 \log(\texttt{Holders}_i), ~~i=1,2,...,n
+$$
+
+Note that $\beta_0,\beta_1 \in\mathbb{R}$ and $\sigma \in \mathbb{R}^{+}$.
+
+(i) Clearly write down the negative-log-likelihood function in `R`. Then use `optim` function to estimate MLE of $\theta=(\alpha,\beta,\sigma)$
+
+(ii) Calculate **Bayesian Information Criterion** (BIC) for the model.
+
+**Part D**: We want to fit the following models:
+$$
+\texttt{Claims}_i\sim Gamma(\alpha_i,\sigma), where
+$$
+$$
+log(\alpha_i)=\beta_0 + \beta_1 \log(\texttt{Holders}_i), ~~i=1,2,...,n
+$$
+
+
+
+(iii) Compare the BIC of all three models
+
+```{r}
+library(MASS)
+plot(Insurance$Holders,Insurance$Claims
+     ,xlab = 'Holders',ylab='Claims',pch=20)
+grid()
+```
+
+```{r}
+k=3 #no. of parameters estimated
+n1=nrow(Insurance)
+bic=data.frame('Model'=character(),'BIC value'=double())
+```
+
+```{r}
+MyMLE1=function(x,data){
+  beta0=x[1]
+  beta1=x[2]
+  sigma=exp(x[3])
+  #negative log likelihood for linear-linear model with Gaussian errors
+  return(-sum(dnorm(data[,2],beta0+beta1*data[,1],sigma,log=T)))
+}
+fit1=optim(c(8,0.11,1),MyMLE1,data=data.frame(Insurance$Holders,Insurance$Claims))
+theta_hat1=fit1$par
+beta0_hat1=theta_hat1[1]
+beta1_hat1=theta_hat1[2]
+sigma_hat1=exp(theta_hat1[3])
+#BIC=no. of parameters estimated*log(sample size)-2*log(max Likelihood)
+bic[1,]=c('Normal',k*log(n1)+2*fit1$value) #fit$value=-log(max likelihood)
+#printing the MLE estimates of theta=(beta0,beta1,sigma)
+print(c(beta0_hat1,beta1_hat1,sigma_hat1))
+```
+
+```{r warning=FALSE}
+library(greybox)
+MyMLE2=function(x,data){
+  beta0=x[1]
+  beta1=x[2]
+  sigma=exp(x[3])
+  #negative log likelihood for linear-linear model with Laplace error distribution
+  return(-sum(dlaplace(data[,2],beta0+beta1*data[,1],sigma,log=T)))
+}
+fit2=optim(c(8,0.11,1),MyMLE2,data=data.frame(Insurance$Holders,Insurance$Claims))
+theta_hat=fit2$par
+beta0_hat2=theta_hat[1]
+beta1_hat2=theta_hat[2]
+sigma_hat2=exp(theta_hat[3])
+bic[2,]=c('Laplace',k*log(n1)+2*fit2$value)
+#printing the MLE estimates of theta=(beta0,beta1,sigma)
+print(c(beta0_hat2,beta1_hat2,sigma_hat2))
+```
+
+```{r}
+Insurance1=Insurance[Insurance$Claims!=0,]
+n2=nrow(Insurance1)
+```
+
+```{r}
+MyMLE3=function(x){
+  beta0=x[1]
+  beta1=x[2]
+  sigma=exp(x[3])
+  #negative log likelihood for log-linear model
+  return(-sum(dlnorm(Insurance1$Claims,beta0+beta1*log(Insurance1$Holders),sigma,log=T)))
+}
+fit3=optim(c(-1,1,1),MyMLE3)
+theta_hat=fit3$par
+beta0_hat3=theta_hat[1]
+beta1_hat3=theta_hat[2]
+sigma_hat3=exp(theta_hat[3])
+bic[3,]=c('Lognormal',k*log(n2)+2*fit3$value)
+#printing the MLE estimates of theta=(beta0,beta1,sigma)
+print(c(beta0_hat3,beta1_hat3,sigma_hat3))
+```
+
+```{r}
+MyMLE4=function(x,data){
+  beta0=x[1]
+  beta1=x[2]
+  sigma=exp(x[3])
+  #negative log likelihood for log-log model
+  return(-sum(dgamma(data[,2],exp(beta0+beta1*log(data[,1])),scale=sigma,log=T)))
+}
+fit4=optim(c(-3,0.11,1),MyMLE4,data=data.frame(Insurance1$Holders,Insurance1$Claims))
+theta_hat=fit4$par
+beta0_hat4=theta_hat[1]
+beta1_hat4=theta_hat[2]
+sigma_hat4=exp(theta_hat[3])
+bic[4,]=c('Gamma',k*log(n2)+2*fit4$value)
+#printing the MLE estimates of theta=(beta0,beta1,sigma)
+print(c(beta0_hat4,beta1_hat4,sigma_hat4))
+```
+
+```{r}
+print(bic)
+```
+
+## Thus we see that gamma regression is the best fit model (minimum BIC) for the data set of Claims against Holders
