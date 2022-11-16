@@ -1,0 +1,94 @@
+---
+title: "**Probability and Statistics with R**"
+author: "**Mohit Kumar Jain**"
+date: "Submission Nov 16-2022 (Wednesday)"
+output: pdf_document
+---
+
+## Problem 2 : Simulation Study to Understand Sampling Distribution
+
+**Part A**
+Suppose 
+$X_1,X_2,\cdots,X_n\stackrel{iid}{\sim} Gamma(\alpha,\sigma)$ with pdf as
+$$
+f(x | \alpha,\sigma)=\frac{1}{\sigma^{\alpha}\Gamma(\alpha)}e^{- x/\sigma}x^{\alpha-1},~~~~0<x<\infty,
+$$
+The mean and variance are $E(X)=\alpha\sigma$ and $Var(X)=\alpha\sigma^2$. Note that `shape = ` $\alpha$ and `scale = ` $\sigma$.
+
+1. Write a `function` in `R` which will compute the MLE of $\theta=\log(\alpha)$ using `optim` function in `R`. You can name it `MyMLE`
+2. Choose `n=20`, and `alpha=1.5` and `sigma=2.2`
+     (i) Simulate $\{X_1,X_2,\cdots,X_n\}$ from `rgamma(n=20,shape=1.5,scale=2.2)`
+     (ii) Apply the `MyMLE` to estimate $\theta$ and append the value in a vector
+     (iii) Repeat the step (i) and (ii) 1000 times
+     (iv) Draw histogram of the estimated MLEs of $\theta$.
+     (v) Draw a vertical line using `abline` function at the true value of $\theta$.
+     (vi) Use `quantile` function on estimated $\theta$'s to find the 2.5 and 97.5-percentile points. 
+3.  Choose `n=40`, and `alpha=1.5` and repeat the (2).
+4.  Choose `n=100`, and `alpha=1.5` and repeat the (2).
+5. Check if the gap between 2.5 and 97.5-percentile points are shrinking as sample size `n` is increasing?
+
+*Hint*: Perhaps you should think of writing a single `function` where you will provide the values of `n`, `sim_size`, `alpha` and `sigma`; and it will return the desired output. 
+
+\newpage
+
+```{r}
+library(ggplot2)
+#dataframe to store the quantiles for different sample sizes
+quantiles=data.frame('X1'=integer(),'X2'=double(),'X3'=double())
+count=1 #pointer to the first empty row in 'quantiles' dataframe
+colnames(quantiles)=c('Sample size','2.5 percentile', '97.5 percentile')
+```
+
+```{r}
+f=function(n,sim_size,alpha,sigma){
+  mle_vector=c()
+  #generating 'sim_size' many random samples and their MLEs
+  for (i in 1:sim_size){
+    set.seed(2*i) #for reproducibility of results
+    data=rgamma(n,alpha,scale=sigma)
+    t1=sum(log(data))
+    t2=sum(data)
+    n=length(data)
+    #MyMLE returns the negative log likelihood function which is then minimised,
+    #so as to maximise likelihoood, using 'optim'
+    #alpha1 and sigma1 are the initial guess for MLEs of alpha and sigma respectively
+    MyMLE=function(x){
+      alpha_hat=x[1]
+      sigma_hat=x[2]
+      #return(-sum(log(dgamma(data,alpha_hat,sigma_hat))))
+      return(-((alpha_hat-1)*t1-1/sigma_hat*t2-n*log(gamma(alpha_hat))-n*alpha_hat*log(sigma_hat)))
+    } 
+    alpha1=mean(data)^2/var(data)
+    sigma1=var(data)/mean(data)
+    x=optim(c(alpha1,sigma1),MyMLE,method='L-BFGS-B',lower=c(0.01,0.01),upper=c(1000,1000))
+    mle_vector=append(mle_vector,log(x$par[1])) #only taking the MLE of log(alpha) from the optimisation result
+  }
+  df=data.frame(mle_vector)
+  colnames(df)=c('theta')
+  #plotting the histogram of MLEs over different random samples
+  p1=ggplot(df,aes(x=theta))+
+       geom_histogram(bins=30,colour='grey',fill='red')+
+       labs(x='MLEs of theta',y='No. of occurences',title   
+            =paste('Sample size=',n))+
+      theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+      geom_vline(aes(xintercept=log(alpha)))#at true value of theta
+  print(p1)
+  #populating the quantiles dataframe
+  quantiles[count,]<<-c(n,unname(quantile(mle_vector,probs=c(0.025,0.975))))
+  count<<-count+1
+}
+```
+
+```{r}
+#function call for different sample sizes
+f(20,1000,1.5,2.2)
+f(40,1000,1.5,2.2)
+f(100,1000,1.5,2.2)
+```
+```{r}
+#gauging the behaviour of percentile points with change in sample size
+quantiles['Inter quantile range']=quantiles['97.5 percentile']-quantiles['2.5 percentile']
+quantiles
+```
+
+## We clearly see that the gap between percentile points shrinks as sample size increases
