@@ -1,0 +1,127 @@
+---
+title: "Assignment_Qn_5"
+author: "Anna Karolin"
+date: "15/11/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 5: Computational Finance - Modelling Stock prices
+
+Following piece of code download the prices of TCS since 2007
+
+```{r}
+library(quantmod)
+getSymbols('TCS.NS')
+tail(TCS.NS)
+```
+Plot the adjusted close prices of TCS
+```{r}
+plot(TCS.NS$TCS.NS.Adjusted)
+```
+
+**Download the data of market index Nifty50**. The Nifty 50 index indicates how the over all market has done over the similar period.
+```{r}
+getSymbols('^NSEI')
+tail(NSEI)
+```
+Plot the adjusted close value of Nifty50
+```{r}
+plot(NSEI$NSEI.Adjusted)
+```
+
+
+### Log-Return 
+We calculate the daily log-return, where log-return is defined as
+$$
+r_t=\log(P_t)-\log(P_{t-1})=\Delta \log(P_t),
+$$
+where $P_t$ is the closing price of the stock on $t^{th}$ day.
+
+```{r}
+TCS_rt = diff(log(TCS.NS$TCS.NS.Adjusted))
+Nifty_rt = diff(log(NSEI$NSEI.Adjusted))
+retrn = cbind.xts(TCS_rt,Nifty_rt) 
+retrn = na.omit(data.frame(retrn))
+
+plot(retrn$NSEI.Adjusted,retrn$TCS.NS.Adjusted
+     ,pch=20
+     ,xlab='Market Return'
+     ,ylab='TCS Return'
+     ,xlim=c(-0.18,0.18)
+     ,ylim=c(-0.18,0.18))
+grid(col='grey',lty=1)
+```
+
++ Consider the following model:
+
+$$
+r_{t}^{TCS}=\alpha + \beta r_{t}^{Nifty} + \varepsilon,
+$$
+where $\mathbb{E}(\varepsilon)=0$ and $\mathbb{V}ar(\varepsilon)=\sigma^2$.
+
+1. Estimate the parameters of the models $\theta=(\alpha,\beta,\sigma)$ using the method of moments type plug-in estimator discussed in the class.
+
+2. Estimate the parameters using the `lm` built-in function of `R`. Note that `lm` using the OLS method.
+
+3. Fill-up the following table
+
+Parameters | Method of Moments | OLS
+-----------|-------------------|-----
+$\alpha$   |                   |
+$\beta$    |                   |
+$\sigma$   |                   |
+
+4. If the current value of Nifty is 18000 and it goes up to 18200. The current value of TCS is Rs. 3200/-. How much you can expect TCS price to go up?
+
+\newpage
+
+# Answer
+
+```{r}
+library("dplyr")
+set.seed(1225)
+data = merge(TCS_rt,Nifty_rt)
+data = na.omit(data)
+data <- as.data.frame(data) 
+n = nrow(data)
+data_s1 = sample_n(data,n,replace = T)
+#data_s2 = sample_n(data$NSEI.Adjusted,n,replace = T)
+mu_TCS <- mean(data_s1$TCS.NS.Adjusted)
+mu_NSEI <- mean(data_s1$NSEI.Adjusted)
+sigma_TCS <- sd(data_s1$TCS.NS.Adjusted)
+sigma_NSEI <- sd(data_s1$NSEI.Adjusted)
+r <- cor(data_s1$TCS.NS.Adjusted, data_s1$NSEI.Adjusted)
+
+# Method of Moments
+
+sigma_hat1 = sigma_NSEI
+alpha_hat1 = mu_NSEI - r*(sigma_NSEI/sigma_TCS)*mu_TCS
+beta_hat1 = r*(sigma_NSEI/sigma_TCS)
+
+#OLS Method
+
+data3 <- cbind(data_s1, NSEI.Adjusted = data_s1$NSEI.Adjusted )
+simple.fit = lm(TCS.NS.Adjusted ~ NSEI.Adjusted, data=data3)
+summary(simple.fit)
+coef(simple.fit)
+errors = residuals(simple.fit)
+sigma_hat2 = sqrt((1/length(errors))*sum(errors^2))
+
+
+Parameters <- c('\u03b1', '\u03b2', '\u03c3')
+Method_of_Moments <- c(alpha_hat1, beta_hat1, sigma_hat1)
+OLS <- c(coef(simple.fit)[1], coef(simple.fit)[2], sigma_hat2)
+df_1 <- data.frame(Parameters, Method_of_Moments, OLS)
+
+x <- exp(log(3200) + coef(simple.fit)[1] + coef(simple.fit)[2]*(log(18200) - log(18000)))
+y <- exp(log(3200) + alpha_hat1 + beta_hat1*(log(18200) - log(18000)))
+
+df_1
+
+print(paste("The expect TCS price (by Method of Moments Method) = ", y))
+print(paste("The expect TCS price (by OLS Method) = ", x))
+```
