@@ -1,0 +1,138 @@
+---
+title: "**Probability and Statistics with R**"
+author: "**Assignment 2**"
+date: "Submission Nov 16-2022 (Wednesday)"
+output: pdf_document
+---
+
+## Problem 3: Analysis of `faithful` datasets.
+
+Consider the `faithful` datasets:
+```{r}
+attach(faithful)
+hist(faithful$waiting,xlab = 'waiting',probability = T,col='pink',main='')
+```
+Fit following three models using MLE method and calculate **Akaike information criterion** (aka., AIC) for each fitted model. Based on AIC decides which model is the best model? Based on the best model calculate the following probability
+$$
+\mathbb{P}(60<\texttt{waiting}<70)
+$$
+
+(i) **Model 1**:
+$$
+f(x)=p*Gamma(x|\alpha,\sigma_1)+(1-p)N(x|\mu,\sigma_2^2),~~0<p<1
+$$
+
+(ii) **Model 2**:
+$$
+f(x)=p*Gamma(x|\alpha_1,\sigma_1)+(1-p)Gamma(x|\alpha_2,\sigma_2),~~0<p<1
+$$
+
+(iii) **Model 3**:
+$$
+f(x)=p*logNormal(x|\mu_1,\sigma_1^2)+(1-p)logNormal(x|\mu_1,\sigma_1^2),~~0<p<1
+$$
+```{r}
+wait=sort(faithful$waiting)
+aic=data.frame('Model'=character(),'AIC value'=double())
+k=5 #no. of parameters estimated
+p1=length(wait[wait<65])/length(wait)
+#proportion of waiting time less than 65 minutes gives the point of shift from first distribution to second
+```
+
+```{r}
+NegLogLike1=function(theta,data){
+  #transformation of parameteres as per the distribution requirements
+  alpha=exp(theta[1]) 
+  sigma1=exp(theta[2])
+  mu=theta[3]
+  sigma2=exp(theta[4])
+  p=exp(theta[5])/(1+exp(theta[5]))
+  #returning negative likelihood of Gamma+Normal bimodal distribution
+  return(-sum(log(p*dgamma(data,alpha,scale=sigma1)+(1-p)*dnorm(data,mu,sigma2))))
+}
+#initial values calculated by method of moments and transformation applied
+theta_initial=c(log(78),log(0.7),83,log(8),log(p1/(1-p1)))
+fit1=optim(theta_initial,NegLogLike1,data=wait)
+#MLE estimates
+theta_hat1 = fit1$par
+alpha_hat = exp(theta_hat1[1])
+sigma1_hat = exp(theta_hat1[2])
+mu_hat = theta_hat1[3]
+sigma2_hat = exp(theta_hat1[4])
+p_hat = exp(theta_hat1[5])/(1+exp(theta_hat1[5]))
+dMix1=function(x){
+  d_mle = p_hat*dgamma(x,alpha_hat,scale=sigma1_hat)+(1-p_hat)*dnorm(x,mean=mu_hat,sd=sigma2_hat)
+  return(d_mle)
+}
+#Max likelihood probabilities plotted
+d_mle1 = p_hat*dgamma(wait,alpha_hat,scale=sigma1_hat)+(1-p_hat)*dnorm(wait,mean=mu_hat,sd=sigma2_hat)
+hist(faithful$waiting,xlab = 'waiting',probability = T,col='pink',main='')
+lines(wait,d_mle1,lwd=3,col='blue')
+#AIC=2*no. of parameters estimated-2*log(Likelihood)
+aic[1,]=c('Gamma+Normal',2*k+2*fit1$value) #fit1$value=-log(L)
+```
+```{r}
+NegLogLike2=function(theta,data){
+  alpha1=exp(theta[1])
+  sigma1=exp(theta[2])
+  alpha2=exp(theta[3])
+  sigma2=exp(theta[4])
+  p=exp(theta[5])/(1+exp(theta[5]))
+  return(-sum(log(p*dgamma(data,alpha1,scale=sigma1)+(1-p)*dgamma(data,alpha2,scale=sigma2))))
+}
+theta_initial=c(log(78),log(0.7),log(108),log(0.8),log(p1/(1-p1)))
+fit2=optim(theta_initial,NegLogLike2,data=wait)
+theta_hat2 = fit2$par
+alpha1_hat = exp(theta_hat2[1])
+sigma1_hat = exp(theta_hat2[2])
+alpha2_hat = exp(theta_hat2[3])
+sigma2_hat = exp(theta_hat2[4])
+p_hat = exp(theta_hat2[5])/(1+exp(theta_hat2[5]))
+dMix2=function(x){
+  d_mle = p_hat*dgamma(x,alpha1_hat,scale=sigma1_hat)+(1-p_hat)*dgamma(x,shape=alpha2_hat,scale=sigma2_hat)
+  return (d_mle)
+}
+d_mle2 = p_hat*dgamma(wait,alpha1_hat,scale=sigma1_hat)+(1-p_hat)*dgamma(wait,shape=alpha2_hat,scale=sigma2_hat)
+hist(faithful$waiting,xlab = 'waiting',probability = T,col='pink',main='')
+lines(wait,d_mle2,lwd=3,col='green')
+aic[2,]=c('Gamma+Gamma',2*k+2*fit2$value)
+```
+
+```{r}
+NegLogLike3=function(theta,data){
+  mu1=theta[1]
+  sigma1=exp(theta[2])
+  mu2=theta[3]
+  sigma2=exp(theta[4])
+  p=exp(theta[5])/(1+exp(theta[5]))
+  return(-sum(log(p*dlnorm(data,mu1,sigma1)+(1-p)*dlnorm(data,mu2,sigma2))))
+}
+theta_initial=c(3.96,log(0.113),4.36,log(0.0973),log(p1/(1-p1)))
+fit3=optim(theta_initial,NegLogLike3,data=wait)
+theta_hat3 = fit3$par
+mu1_hat = theta_hat3[1]
+sigma1_hat = exp(theta_hat3[2])
+mu2_hat = theta_hat3[3]
+sigma2_hat = exp(theta_hat3[4])
+p_hat = exp(theta_hat3[5])/(1+exp(theta_hat3[5]))
+dMix3=function(x){
+  d_mle=p_hat*dlnorm(x,mean=mu1_hat,sd=sigma1_hat)+(1-p_hat)*dlnorm(x,mean=mu2_hat,sd=sigma2_hat)
+  return (d_mle)
+}
+d_mle3=p_hat*dlnorm(wait,mu1_hat,sigma1_hat)+(1-p_hat)*dlnorm(wait,mu2_hat,sigma2_hat)
+hist(faithful$waiting,xlab = 'waiting',probability = T,col='pink',main='')
+lines(wait,d_mle3,lwd=3,col='red')
+aic[3,]=c('LogNormal+LogNormal',2*k+2*fit3$value)
+```
+
+```{r}
+#We minimize AIC and find waiting probability for the corresponding model
+print(paste("The best model is",aic[aic$AIC.value==min(aic$AIC.value),]$Model))
+print("Acordingly P(60<waiting<70)=")
+if(aic[aic$AIC.value==min(aic$AIC.value),]$Model=='Gamma+Normal')
+  integrate(dMix1,60,70)
+if(aic[aic$AIC.value==min(aic$AIC.value),]$Model=='Gamma+Gamma')
+  integrate(dMix2,60,70)
+if(aic[aic$AIC.value==min(aic$AIC.value),]$Model=='LogNormal+LogNormal')
+  integrate(dMix3,60,70)
+```
